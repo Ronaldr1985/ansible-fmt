@@ -2,16 +2,16 @@ package main
 
 import "core:fmt"
 import "core:os"
+import "core:strings"
 import "core:testing"
 
-import "lexer"
-import "token"
+import "tokenizer"
 
 @test
-test_next_token :: proc(t: ^testing.T) {
+test_next_tokenizer :: proc(t: ^testing.T) {
 	input := `---
 
-- name: Install
+- name: Install curl and wget
   ansible.builtin.apt:
     pkg:
       - curl
@@ -25,39 +25,39 @@ test_next_token :: proc(t: ^testing.T) {
 `
 
 	tests := [?]struct{
-		expected_type: token.Token_Type,
+		expected_type: tokenizer.Token_Type,
 		expected_literal: string
 	}{
-		{token.START_IDENTIFIER, "---"},
-		{token.ITEM_IDENTIFIER, "-"},
-		{token.NAME, "name"},
-		{token.COLON, ":"},
-		{token.IDENTIFIER, "Install"},
-		{token.MODULE_APT_FQCN, "ansible.builtin.apt"},
-		{token.COLON, ":"},
-		{token.ARG_PKG, "pkg"},
-		{token.COLON, ":"},
-		{token.ITEM_IDENTIFIER, "-"},
-		{token.IDENTIFIER, "curl"},
-		{token.ITEM_IDENTIFIER, "-"},
-		{token.IDENTIFIER, "wget"},
-		{token.WHEN, "when"},
-		{token.COLON, ":"},
-		{token.ITEM_IDENTIFIER, "-"},
-		{token.IDENTIFIER, "install_curl"},
-		{token.ITEM_IDENTIFIER, "-"},
-		{token.IDENTIFIER, "install_wget"},
-		{token.END_IDENTIFIER, "..."},
-		{token.EOF, ""}
+		{tokenizer.START_IDENTIFIER, "---"},
+		{tokenizer.ITEM_IDENTIFIER, "-"},
+		{tokenizer.NAME, "name"},
+		{tokenizer.COLON, ":"},
+		{tokenizer.IDENTIFIER, "Install curl and wget"},
+		{tokenizer.MODULE_APT_FQCN, "ansible.builtin.apt"},
+		{tokenizer.COLON, ":"},
+		{tokenizer.ARG_PKG, "pkg"},
+		{tokenizer.COLON, ":"},
+		{tokenizer.ITEM_IDENTIFIER, "-"},
+		{tokenizer.IDENTIFIER, "curl"},
+		{tokenizer.ITEM_IDENTIFIER, "-"},
+		{tokenizer.IDENTIFIER, "wget"},
+		{tokenizer.WHEN, "when"},
+		{tokenizer.COLON, ":"},
+		{tokenizer.ITEM_IDENTIFIER, "-"},
+		{tokenizer.IDENTIFIER, "install_curl"},
+		{tokenizer.ITEM_IDENTIFIER, "-"},
+		{tokenizer.IDENTIFIER, "install_wget"},
+		{tokenizer.END_IDENTIFIER, "..."},
+		{tokenizer.EOF, ""}
 	}
 
 
-	l: lexer.Lexer
-	lexer.lexer_init(&l, input)
-	defer lexer.lexer_destroy(&l)
+	toknzer: tokenizer.Tokenizer
+	tokenizer.tokenizer_init(&toknzer, input)
+	defer tokenizer.tokenizer_destroy(&toknzer)
 
 	for test in tests {
-		tok := lexer.next_token(&l)
+		tok := tokenizer.next_token(&toknzer)
 
 		testing.expectf(
 			t,
@@ -67,8 +67,29 @@ test_next_token :: proc(t: ^testing.T) {
 			tok.type,
 		)
 
-		token.token_destroy(&tok)
+		testing.expectf(
+			t,
+			strings.compare(tok.literal, test.expected_literal) == 0,
+			"Expected %v instead got %v",
+			test.expected_literal,
+			tok.literal,
+		)
+
+		tokenizer.token_destroy(&tok)
 	}
+}
+
+format_string :: proc(input: string, allocator := context.allocator) -> (formatted_string: string) {
+	t: tokenizer.Tokenizer
+	tokenizer.tokenizer_init(&t, input)
+	defer tokenizer.tokenizer_destroy(&t)
+
+	tokens := tokenizer.tokenize_string(input)
+	defer delete(tokens)
+
+	fmt.println(tokens)
+
+	return
 }
 
 main :: proc() {
@@ -84,52 +105,6 @@ main :: proc() {
     - install_wget
 
 ...
-
 `
-
-	tests := [?]struct{
-		expected_type: token.Token_Type,
-		expected_literal: string
-	}{
-		{token.START_IDENTIFIER, "---"},
-		{token.ITEM_IDENTIFIER, "-"},
-		{token.NAME, "name"},
-		{token.COLON, ":"},
-		{token.IDENTIFIER, "Install"},
-		{token.MODULE_APT_FQCN, "ansible.builtin.apt"},
-		{token.COLON, ":"},
-		{token.ARG_PKG, "pkg"},
-		{token.COLON, ":"},
-		{token.ITEM_IDENTIFIER, "-"},
-		{token.IDENTIFIER, "curl"},
-		{token.ITEM_IDENTIFIER, "-"},
-		{token.IDENTIFIER, "wget"},
-		{token.WHEN, "when"},
-		{token.COLON, ":"},
-		{token.ITEM_IDENTIFIER, "-"},
-		{token.IDENTIFIER, "install_curl"},
-		{token.ITEM_IDENTIFIER, "-"},
-		{token.IDENTIFIER, "install_wget"},
-		{token.END_IDENTIFIER, "..."},
-		{token.EOF, ""}
-	}
-
-	l: lexer.Lexer
-	lexer.lexer_init(&l, input)
-	defer lexer.lexer_destroy(&l)
-
-	for test in tests {
-		tok := lexer.next_token(&l)
-
-		if tok.type == test.expected_type {
-			continue
-		}
-
-		fmt.println("Expected literal", test.expected_literal, "got literal", tok.literal)
-		fmt.println( "Expected", test.expected_type, "got", tok.type)
-		fmt.println()
-
-		token.token_destroy(&tok)
-	}
 
 }

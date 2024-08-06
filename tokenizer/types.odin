@@ -1,4 +1,4 @@
-package token
+package tokenizer
 
 import "core:strings"
 
@@ -72,4 +72,13 @@ Keywords := map[string]Token_Type {
 	"ANSIBLE.BUILTIN.APT" = MODULE_APT_FQCN,
 	"PKG"                 = ARG_PKG
 }
+
+Tokenizer :: struct {
+	input: string,
+
+	position: int, // current position in input, points to current char
+	read_position: int, // current reading position in input, after current char
+	ch: rune,
+}
+
 
