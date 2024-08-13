@@ -8,12 +8,11 @@ import "core:unicode"
 // TODO: Add allocator paramter to allow for custom allocation
 // TODO: Maybe error handling?  strings.clone can fail ^
 token_init :: proc(tok: ^Token, type: Token_Type, ch: rune) {
-	tok.type = strings.clone(type)
+	tok.type    = type
 	tok.literal = fmt.aprintf("%v", ch)
 }
 
 token_destroy :: proc(tok: ^Token) {
-	delete(tok.type)
 	delete(tok.literal)
 }
 
@@ -24,11 +23,14 @@ lookup_identifier :: proc(identifier: string) -> Token_Type {
 		return token_type
 	}
 
-	return IDENTIFIER
+	return .Identifier
 }
 
 tokenizer_init :: proc(t: ^Tokenizer, input: string) -> (err: runtime.Allocator_Error) {
 	t.input, err = strings.clone(input)
+	if err != nil {
+		return
+	}
 
 	read_char(t)
 
@@ -45,11 +47,12 @@ read_char :: proc(t: ^Tokenizer) {
 	} else {
 		t.ch = rune(t.input[t.read_position])
 	}
+
 	t.position = t.read_position
 	t.read_position += 1
 }
 
-next_token :: proc(t: ^Tokenizer) -> (tok: Token) {
+advance_token :: proc(t: ^Tokenizer) -> (tok: Token) {
 	skip_whitespace :: proc(t: ^Tokenizer) {
 		for t.ch == ' ' || t.ch == '\t' || t.ch == '\n' || t.ch == '\r' {
 			read_char(t)
@@ -76,51 +79,51 @@ next_token :: proc(t: ^Tokenizer) -> (tok: Token) {
 	case '-':
 		if t.input[t.read_position] == '-' && t.input[t.read_position+1] == '-' {
 			tok.literal = strings.clone("---")
-			tok.type = strings.clone(START_IDENTIFIER)
+			tok.type = .Start_Identifier
 			t.position += 2
 			t.read_position += 2
 			t.ch = rune(t.input[t.read_position])
 		} else {
-			token_init(&tok, ITEM_IDENTIFIER, t.ch)
+			token_init(&tok, .Hyphen, t.ch)
 		}
 	case ':':
-		token_init(&tok, COLON, t.ch)
+		token_init(&tok, .Colon, t.ch)
 	case '(':
-		token_init(&tok, LEFT_PARENTHESES, t.ch)
+		token_init(&tok, .Left_Parentheses, t.ch)
 	case ')':
-		token_init(&tok, RIGHT_PARENTHESES, t.ch)
+		token_init(&tok, .Right_Parentheses, t.ch)
 	case ',':
-		token_init(&tok, COMMA, t.ch)
+		token_init(&tok, .Comma, t.ch)
 	case '.':
 		if t.input[t.read_position] == '.' && t.input[t.read_position+1] == '.' {
 			tok.literal = strings.clone("...")
-			tok.type = strings.clone(END_IDENTIFIER)
+			tok.type = .End_Identifier
 			t.position += 2
 			t.read_position += 2
 			t.ch = rune(t.input[t.read_position])
 		} else {
-			token_init(&tok, PERIOD, t.ch)
+			token_init(&tok, .Period, t.ch)
 		}
 	case ';':
-		token_init(&tok, SEMICOLON, t.ch)
+		token_init(&tok, .Semicolon, t.ch)
 	case '+':
-		token_init(&tok, PLUS, t.ch)
+		token_init(&tok, .Plus, t.ch)
 	case '{':
-		token_init(&tok, LEFT_BRACE, t.ch)
+		token_init(&tok, .Left_Brace, t.ch)
 	case '}':
-		token_init(&tok, RIGHT_BRACE, t.ch)
+		token_init(&tok, .Right_Brace, t.ch)
 	case 0:
 		tok.literal = fmt.aprintf("")
-		tok.type = strings.clone(EOF)
+		tok.type = .EOF
 	case:
 		if is_letter(t.ch) {
 			tok.literal = strings.clone(read_identifier(t))
 			upper := strings.to_upper(tok.literal)
 			defer delete(upper)
-			tok.type = strings.clone(lookup_identifier(tok.literal))
+			tok.type = lookup_identifier(tok.literal)
 			return tok
 		} else {
-			token_init(&tok, ILLEGAL, t.ch)
+			token_init(&tok, .Invalid, t.ch)
 		}
 	}
 
@@ -139,11 +142,11 @@ tokenize_string :: proc(input: string) -> ([]Token) {
 
 	tok: Token
 	for {
-		tok = next_token(&t)
+		tok = advance_token(&t)
 
 		append(&tokens, tok)
 
-		if tok.type == EOF {
+		if tok.type == .EOF {
 			break
 		}
 	}

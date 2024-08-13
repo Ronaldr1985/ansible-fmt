@@ -2,83 +2,93 @@ package tokenizer
 
 import "core:strings"
 
-ILLEGAL            :: "ILLEGAL"
-START_IDENTIFIER   :: "---"
-END_IDENTIFIER     :: "..."
-EOF                :: "EOF"
-IDENTIFIER         :: "IDENTIFIER"
-ITEM_IDENTIFIER    :: "-"
-// Key words
-NAME               :: "NAME"
-LOOP               :: "LOOP"
-UNTIL              :: "UNTIL"
-NOTIFY             :: "NOTIFY"
-WHEN               :: "WHEN"
-ANY_ERRORS_FATAL   :: "ANY_ERRORS_FATAL"
-BECOME             :: "BECOME"
-BECOME_EXE         :: "BECOME_EXEC"
-BECOME_FLAGS       :: "BECOME_FLAGS"
-BECOME_METHOD      :: "BECOME_METHOD"
-BECOME_USER        :: "BECOME_USER"
-CHECK_MODE         :: "CHECK_MODE"
-COLLECTIONS        :: "COLLECTIONS"
-CONNECTION         :: "CONNECTION"
-DEBUGGER           :: "DEBUGGER"
-DIFF               :: "DIFF"
-ENVIRONMENT        :: "ENVIRONMENT"
-// Types
-INT                :: "INT"
-BOOL               :: "BOOL"
-// CHARACTERS
-COLON              :: ":"
-PLUS               :: "+"
-COMMA              :: ","
-PERIOD             :: "."
-SEMICOLON          :: ";"
-LEFT_PARENTHESES   :: "("
-RIGHT_PARENTHESES  :: ")"
-LEFT_BRACE         :: "{"
-RIGHT_BRACE        :: "}"
-// MODULES
-// FQCNs
-MODULE_APT_FQCN    :: "ansible.builtin.apt"
-MODULE_APT         :: "apt"
-ARG_PKG            :: "pkg"
+Token_Type :: enum {
+	Invalid,
+	EOF,
 
-Token_Type :: string
+	Start_Identifier,
+	End_Identifier,
+
+	Identifier,
+
+	Hyphen,
+	Comma,
+	Colon,
+	Plus,
+	Period,
+	Semicolon,
+	Left_Parentheses,
+	Right_Parentheses,
+	Left_Brace,
+	Right_Brace,
+
+	Int,
+	Bool,
+
+	Name,
+	Loop,
+	Until,
+	Notify,
+	When,
+	Any_errors_fatal,
+	Become,
+	Become_exe,
+	Become_flags,
+	Become_method,
+	Become_user,
+	Check_mode,
+	Collections,
+	Connection,
+	Debugger,
+	Diff,
+	Environment,
+
+	Module,
+	Argument,
+}
+
+Position :: struct {
+	indentation: int,
+	line:        int,
+	column:      int,
+}
 
 Token :: struct {
-	type: Token_Type,
-	literal: string,
+	position:    Position,
+	type:        Token_Type,
+	literal:     string,
+	indentation: int,
 }
 
 Keywords := map[string]Token_Type {
-	"NAME"                = NAME,
-	"LOOP"                = LOOP,
-	"UNTIL"               = UNTIL,
-	"WHEN"                = WHEN,
-	"ANY_ERRORS_FATAL"    = ANY_ERRORS_FATAL,
-	"BECOME"              = BECOME,
-	"BECOME_EXE"          = BECOME_EXE,
-	"BECOME_FLAGS"        = BECOME_FLAGS,
-	"BECOME_METHOD"       = BECOME_METHOD,
-	"BECOME_USER"         = BECOME_USER,
-	"CHECK_MODE"          = CHECK_MODE,
-	"COLLECTIONS"         = COLLECTIONS,
-	"CONNECTION"          = CONNECTION,
-	"DEBUGGER"            = DEBUGGER,
-	"DIFF"                = DIFF,
-	"ENVIRONMENT"         = ENVIRONMENT,
-	"ANSIBLE.BUILTIN.APT" = MODULE_APT_FQCN,
-	"PKG"                 = ARG_PKG
+	"NAME"                = .Name,
+	"LOOP"                = .Loop,
+	"UNTIL"               = .Until,
+	"WHEN"                = .When,
+	"ANY_ERRORS_FATAL"    = .Any_errors_fatal,
+	"BECOME"              = .Become,
+	"BECOME_EXE"          = .Become_exe,
+	"BECOME_FLAGS"        = .Become_flags,
+	"BECOME_METHOD"       = .Become_method,
+	"BECOME_USER"         = .Become_user,
+	"CHECK_MODE"          = .Check_mode,
+	"COLLECTIONS"         = .Collections,
+	"CONNECTION"          = .Connection,
+	"DEBUGGER"            = .Debugger,
+	"DIFF"                = .Diff,
+	"ENVIRONMENT"         = .Environment,
+	"APT"                 = .Module,
+	"ANSIBLE.BUILTIN.APT" = .Module,
+	"PKG"                 = .Argument,
 }
 
 Tokenizer :: struct {
-	input: string,
+	input:         string,
 
-	position: int, // current position in input, points to current char
+	ch:            rune, // current rune
+
+	position:      int, // current position in input, points to current char
 	read_position: int, // current reading position in input, after current char
-	ch: rune,
 }
 
 
