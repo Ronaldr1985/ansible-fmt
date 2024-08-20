@@ -3,81 +3,10 @@ package main
 import "core:fmt"
 import "core:os"
 import "core:strings"
-import "core:testing"
+import "core:mem"
 
 import "tokenizer"
-
-@test
-test_next_tokenizer :: proc(t: ^testing.T) {
-	input := `---
-
-- name: Install curl and wget
-  ansible.builtin.apt:
-    pkg:
-      - curl
-      - wget
-  when:
-    - install_curl
-    - install_wget
-
-...
-
-`
-
-	tests := [?]struct{
-		expected_type: tokenizer.Token_Type,
-		expected_literal: string
-	}{
-		{tokenizer.START_IDENTIFIER, "---"},
-		{tokenizer.ITEM_IDENTIFIER, "-"},
-		{tokenizer.NAME, "name"},
-		{tokenizer.COLON, ":"},
-		{tokenizer.IDENTIFIER, "Install curl and wget"},
-		{tokenizer.MODULE_APT_FQCN, "ansible.builtin.apt"},
-		{tokenizer.COLON, ":"},
-		{tokenizer.ARG_PKG, "pkg"},
-		{tokenizer.COLON, ":"},
-		{tokenizer.ITEM_IDENTIFIER, "-"},
-		{tokenizer.IDENTIFIER, "curl"},
-		{tokenizer.ITEM_IDENTIFIER, "-"},
-		{tokenizer.IDENTIFIER, "wget"},
-		{tokenizer.WHEN, "when"},
-		{tokenizer.COLON, ":"},
-		{tokenizer.ITEM_IDENTIFIER, "-"},
-		{tokenizer.IDENTIFIER, "install_curl"},
-		{tokenizer.ITEM_IDENTIFIER, "-"},
-		{tokenizer.IDENTIFIER, "install_wget"},
-		{tokenizer.END_IDENTIFIER, "..."},
-		{tokenizer.EOF, ""}
-	}
-
-
-	toknzer: tokenizer.Tokenizer
-	tokenizer.tokenizer_init(&toknzer, input)
-	defer tokenizer.tokenizer_destroy(&toknzer)
-
-	for test in tests {
-		tok := tokenizer.next_token(&toknzer)
-
-		testing.expectf(
-			t,
-			tok.type == test.expected_type,
-			"Expected %v instead got %v",
-			test.expected_type,
-			tok.type,
-		)
-
-		testing.expectf(
-			t,
-			strings.compare(tok.literal, test.expected_literal) == 0,
-			"Expected %v instead got %v",
-			test.expected_literal,
-			tok.literal,
-		)
-
-		tokenizer.token_destroy(&tok)
-	}
-}
+import "parser"
 
 format_string :: proc(input: string, allocator := context.allocator) -> (formatted_string: string) {
 	t: tokenizer.Tokenizer
@@ -92,10 +21,11 @@ format_string :: proc(input: string, allocator := context.allocator) -> (formatt
 	return
 }
 
-main :: proc() {
-	input := `---
+_main :: proc() {
+	input := `
+---
 
-- name: Install
+- name: Install curl and wget
   ansible.builtin.apt:
     pkg:
       - curl
@@ -105,6 +35,32 @@ main :: proc() {
     - install_wget
 
 ...
+
 `
 
+	file, err := parser.parse_string(input)
+	defer parser.file_destroy(&file)
+	if err != nil {
+		fmt.eprintln("Failed to parse")
+		return
+	}
+	num_plays := len(file.plays)
+	fmt.println(file)
+
 }
+
+main :: proc() {
+	track: mem.Tracking_Allocator
+	mem.tracking_allocator_init(&track, context.allocator)
+	context.allocator = mem.tracking_allocator(&track)
+
+	_main()
+
+	for _, leak in track.allocation_map {
+		fmt.printf("%v leaked %v bytes\n", leak.location, leak.size)
+	}
+	for bad_free in track.bad_free_array {
+		fmt.printf("%v allocation %p was freed badly\n", bad_free.location, bad_free.memory)
+	}
+}
+

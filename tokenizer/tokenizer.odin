@@ -7,9 +7,11 @@ import "core:unicode"
 
 // TODO: Add allocator paramter to allow for custom allocation
 // TODO: Maybe error handling?  strings.clone can fail ^
-token_init :: proc(tok: ^Token, type: Token_Type, ch: rune) {
+token_init :: proc(tok: ^Token, type: Token_Type, ch: rune, line, column: int) {
 	tok.type    = type
 	tok.literal = fmt.aprintf("%v", ch)
+	tok.line = line
+	tok.column = column
 }
 
 token_destroy :: proc(tok: ^Token) {
@@ -42,14 +44,20 @@ tokenizer_destroy :: proc(t: ^Tokenizer) {
 }
 
 read_char :: proc(t: ^Tokenizer) {
-	if t.read_position >= len(t.input) {
-		t.ch = 0
+	if t.input[t.offset] == '\n' || t.input[t.offset] == '\r' {
+		t.line += 1
+		t.column = 0
 	} else {
-		t.ch = rune(t.input[t.read_position])
+		t.column += 1
 	}
+	t.offset += 1
 
-	t.position = t.read_position
-	t.read_position += 1
+	if t.offset >= len(t.input)-1 {
+		t.ch = 0
+		t.column = 0
+	} else {
+		t.ch = rune(t.input[t.offset])
+	}
 }
 
 advance_token :: proc(t: ^Tokenizer) -> (tok: Token) {
@@ -64,66 +72,72 @@ advance_token :: proc(t: ^Tokenizer) -> (tok: Token) {
 	}
 
 	read_identifier :: proc(t: ^Tokenizer) -> string {
-		position := t.position
+		prev_offset := t.offset
 
 		for is_letter(t.ch) {
 			read_char(t)
 		}
 
-		return t.input[position:t.position]
+		return t.input[prev_offset:t.offset]
 	}
 
 	skip_whitespace(t)
 
 	switch t.ch {
 	case '-':
-		if t.input[t.read_position] == '-' && t.input[t.read_position+1] == '-' {
+		if t.input[t.offset+1] == '-' && t.input[t.offset+2] == '-' {
 			tok.literal = strings.clone("---")
 			tok.type = .Start_Identifier
-			t.position += 2
-			t.read_position += 2
-			t.ch = rune(t.input[t.read_position])
+			t.ch = rune(t.input[t.offset])
+			tok.line = t.line
+			tok.column = t.column
+			t.offset += 2
 		} else {
-			token_init(&tok, .Hyphen, t.ch)
+			token_init(&tok, .Hyphen, t.ch, t.line, t.column)
 		}
 	case ':':
-		token_init(&tok, .Colon, t.ch)
+		token_init(&tok, .Colon, t.ch, t.line, t.column)
 	case '(':
-		token_init(&tok, .Left_Parentheses, t.ch)
+		token_init(&tok, .Left_Parentheses, t.ch, t.line, t.column)
 	case ')':
-		token_init(&tok, .Right_Parentheses, t.ch)
+		token_init(&tok, .Right_Parentheses, t.ch, t.line, t.column)
 	case ',':
-		token_init(&tok, .Comma, t.ch)
+		token_init(&tok, .Comma, t.ch, t.line, t.column)
 	case '.':
-		if t.input[t.read_position] == '.' && t.input[t.read_position+1] == '.' {
+		if t.input[t.offset+1] == '.' && t.input[t.offset+2] == '.' {
 			tok.literal = strings.clone("...")
 			tok.type = .End_Identifier
-			t.position += 2
-			t.read_position += 2
-			t.ch = rune(t.input[t.read_position])
+			t.offset += 2
+			t.ch = rune(t.input[t.offset])
+			tok.line = t.line
+			tok.column = t.column
 		} else {
-			token_init(&tok, .Period, t.ch)
+			token_init(&tok, .Period, t.ch, t.line, t.column)
 		}
 	case ';':
-		token_init(&tok, .Semicolon, t.ch)
+		token_init(&tok, .Semicolon, t.ch, t.line, t.column)
 	case '+':
-		token_init(&tok, .Plus, t.ch)
+		token_init(&tok, .Plus, t.ch, t.line, t.column)
 	case '{':
-		token_init(&tok, .Left_Brace, t.ch)
+		token_init(&tok, .Left_Brace, t.ch, t.line, t.column)
 	case '}':
-		token_init(&tok, .Right_Brace, t.ch)
+		token_init(&tok, .Right_Brace, t.ch, t.line, t.column)
 	case 0:
 		tok.literal = fmt.aprintf("")
 		tok.type = .EOF
+		tok.line = t.line
+		tok.column = t.column
 	case:
 		if is_letter(t.ch) {
+			tok.column = t.column - len(tok.literal)
 			tok.literal = strings.clone(read_identifier(t))
 			upper := strings.to_upper(tok.literal)
 			defer delete(upper)
 			tok.type = lookup_identifier(tok.literal)
+			tok.line = t.line
 			return tok
 		} else {
-			token_init(&tok, .Invalid, t.ch)
+			token_init(&tok, .Invalid, t.ch, t.line, t.column)
 		}
 	}
 

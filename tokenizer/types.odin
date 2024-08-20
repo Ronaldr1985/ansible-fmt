@@ -45,19 +45,26 @@ Token_Type :: enum {
 
 	Module,
 	Argument,
+	Argument_Parameter,
 }
 
 Position :: struct {
-	indentation: int,
-	line:        int,
-	column:      int,
+	offset: int,
+	line:   int,
+	column: int,
 }
 
 Token :: struct {
-	position:    Position,
-	type:        Token_Type,
-	literal:     string,
-	indentation: int,
+	using position: Position,
+	type:           Token_Type,
+	literal:        string,
+	indentation:    int,
+}
+
+Tokenizer :: struct {
+	using position: Position,
+	input:          string,
+	ch:             rune, // current rune
 }
 
 Keywords := map[string]Token_Type {
@@ -80,15 +87,6 @@ Keywords := map[string]Token_Type {
 	"APT"                 = .Module,
 	"ANSIBLE.BUILTIN.APT" = .Module,
 	"PKG"                 = .Argument,
-}
-
-Tokenizer :: struct {
-	input:         string,
-
-	ch:            rune, // current rune
-
-	position:      int, // current position in input, points to current char
-	read_position: int, // current reading position in input, after current char
 }
 
 
